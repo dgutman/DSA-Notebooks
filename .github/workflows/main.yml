@@ -1,39 +1,74 @@
-name: Convert Jupyter Notebook & Sync to Notion Via MD
+name: Upload Notebook to Notion
 
 on:
   push:
     branches:
       - main
     paths:
-      - '**.ipynb'  # Trigger only when a notebook is pushed
+      - '**.ipynb'  # Trigger on Jupyter notebook changes
+  workflow_dispatch:  # Allow manual triggering
 
 jobs:
-  convert_and_sync:
+  upload_to_notion:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Checkout Repository
-        uses: actions/checkout@v3
+      - name: Checkout code
+        uses: actions/checkout@v2
 
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v2
         with:
-          python-version: '3.9'
+          python-version: '3.8'  # Specify the Python version
 
-      - name: Install Jupyter and Notion Client
+      - name: Install dependencies
         run: |
-          pip install nbconvert requests notion-client
+          pip install jupyter nbconvert requests
 
-      - name: Convert Notebooks to Markdown
+      - name: Convert notebook to Markdown
         run: |
+          # Create the markdown output directory if it doesn't exist
           mkdir -p markdown
-          for file in $(find . -name "*.ipynb"); do
-            jupyter nbconvert --to markdown "$file" --output "markdown/$(basename "$file" .ipynb).md"
-          done
+          # Convert the main notebook to markdown
+          jupyter nbconvert --to markdown getImage_from_DSA.ipynb
 
       - name: Upload to Notion
         env:
-          NOTION_API_KEY: ${{ secrets.NOTION_SECRETS }}
-          NOTION_PAGE_ID: ${{ secrets.NOTION_PAGEID }}
+          NOTION_TOKEN: ${{ secrets.NOTION_TOKEN }}
+          NOTION_PAGE_ID: ${{ secrets.NOTION_PAGE_ID }}
         run: |
-          python scripts/upload_to_notion.py
+          python -c "
+import os
+import requests
+
+def upload_to_notion(markdown_file):
+    with open(markdown_file, 'r') as file:
+        content = file.read()
+
+    headers = {
+        'Authorization': f'Bearer {os.environ['NOTION_TOKEN']}',
+        'Content-Type': 'application/json',
+    }
+
+    data = {
+        'parent': {'id': os.environ['NOTION_PAGE_ID']},
+        'properties': {
+            'title': [{'text': {'content': 'Your Page Title'}}]
+        },
+        'children': [
+            {
+                'object': 'block',
+                'type': 'paragraph',
+                'paragraph': {
+                    'text': [{'type': 'text', 'text': {'content': content}}],
+                },
+            }
+        ],
+    }
+
+    response = requests.post('https://api.notion.com/v1/pages', headers=headers, json=data)
+    print(response.status_code)
+
+upload_to_notion('markdown/getImage_from_DSA.md')
+          "
 
