@@ -1,0 +1,39 @@
+name: Convert Jupyter Notebook & Sync to Notion Via MD
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - '**.ipynb'  # Trigger only when a notebook is pushed
+
+jobs:
+  convert_and_sync:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.9'
+
+      - name: Install Jupyter and Notion Client
+        run: |
+          pip install nbconvert requests notion-client
+
+      - name: Convert Notebooks to Markdown
+        run: |
+          mkdir -p markdown
+          for file in $(find . -name "*.ipynb"); do
+            jupyter nbconvert --to markdown "$file" --output "markdown/$(basename "$file" .ipynb).md"
+          done
+
+      - name: Upload to Notion
+        env:
+          NOTION_API_KEY: ${{ secrets.NOTION_SECRETS }}
+          NOTION_PAGE_ID: ${{ secrets.NOTION_PAGEID }}
+        run: |
+          python scripts/upload_to_notion.py
+
