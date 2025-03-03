@@ -1,4 +1,4 @@
-name: Convert Jupyter Notebook & Sync to Notion
+name: Convert Jupyter Notebook & Sync to Notion Via MD
 
 on:
   push:
